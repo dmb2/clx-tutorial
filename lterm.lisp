@@ -3,25 +3,22 @@
 (in-package #:lterm)
 (export 'lterm)
 ;;; "lterm" goes here. Hacks and glory await!
-(defun handle-expose-event (count window gcontext words)
+
+(defun handle-expose-event (count window gcontext)
   (when (zerop count)
     (let* ((width (xlib:drawable-width window))
-	   (height (xlib:drawable-height window))
-	   (right-margin 5)
-	   (left-margin 10)
-	   (line-spacing (+ 3 (xlib:font-ascent (xlib:gcontext-font gcontext))))
-	   (inter-word-space (xlib:text-width gcontext " "))
-	   (line 1)
-	   (text-cursor left-margin))
-      (dolist (word words)
-	(let ((word-width (xlib:text-width gcontext word)))
-	  (when (> (+ text-cursor word-width right-margin) width)
-	    (incf line)
-	    (setf text-cursor left-margin))
-	  (xlib:draw-glyphs window gcontext
-			text-cursor (* line line-spacing)
-			word)
-	  (incf text-cursor (+ word-width inter-word-space))))))
+	     (height (xlib:drawable-height window))
+	     (pixmap (xlib:create-pixmap :width width
+					 :height height
+					 :depth (xlib:drawable-depth window)
+					 :drawable window)))
+(flet ((v-floor (num) 
+	     (values (floor num))))
+  (xlib:draw-point pixmap gcontext 
+			 (v-floor (/ width 2)) 
+			 (v-floor (/ height 2)))
+  (xlib:clear-area window)
+  (xlib:copy-area pixmap gcontext 0 0 width height window 0 0))))
   nil)
 (defun handle-enter-event (exitp)
   (if exitp
@@ -68,15 +65,8 @@
 			      :discard-p t)
       (:configure-notify (w-w w-h) (setf width w-w
 					 height w-h) nil)
-      (:exposure (count) (handle-expose-event count window gcontext
-					      (white-space-split
-					       "Ragged right setting is easier than justified setting.
-This is both a strength and a weakness.  Although the
-regular word spacing of ragged right setting is easier on
-the reader's eye, in craft work there is honour and glory in
-doing things the hard way. The reader of justified text
-knows of the labour and expense, and is flattered to get
-something for nothing, even if it is worth what he paid.")))
-      (:button-press () t))
+      (:exposure (count) (handle-expose-event count window gcontext))
+      (:button-press () t)
+      (:destroy-notify () t))
     (xlib:destroy-window window)
     (xlib:close-display display)))
