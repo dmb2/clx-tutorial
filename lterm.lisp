@@ -7,19 +7,29 @@
 (defun handle-expose-event (count window gcontext)
   (when (zerop count)
     (let* ((width (xlib:drawable-width window))
-	     (height (xlib:drawable-height window))
-	     (pixmap (xlib:create-pixmap :width width
-					 :height height
-					 :depth (xlib:drawable-depth window)
-					 :drawable window)))
-(flet ((v-floor (num) 
-	     (values (floor num))))
-  (xlib:draw-point pixmap gcontext 
-			 (v-floor (/ width 2)) 
-			 (v-floor (/ height 2)))
-  (xlib:clear-area window)
-  (xlib:copy-area pixmap gcontext 0 0 width height window 0 0))))
+	   (height (xlib:drawable-height window))
+	   (x 0)
+	   (y 0)
+	   (pixmap (xlib:create-pixmap :width width
+				       :height height
+				       :depth (xlib:drawable-depth window)
+				       :drawable window))
+	   (gc-color (xlib:gcontext-foreground gcontext)))
+      (xlib:with-gcontext (gcontext :foreground (xlib:gcontext-background gcontext))
+	(xlib:draw-rectangle pixmap gcontext 0 0 
+			     width height 'fill))
+      (loop for j from 0 to 100
+      	 do (loop for i from 0 to 100
+      	       do (let ((color (xlib:alloc-color (xlib:window-colormap window)
+						 (xlib:make-color :red (float (/ i 100)) 
+								  :green (float (/ j 100))
+								  :blue (float (/ (+ i j) 200))))))
+		    (setf (xlib:gcontext-foreground gcontext) color)
+		    (xlib:draw-point pixmap gcontext i j))))
+
+    (xlib:copy-area pixmap gcontext 0 0 width height window 0 0)))
   nil)
+
 (defun handle-enter-event (exitp)
   (if exitp
       (format t "Mouse left window! ~%" )
@@ -59,7 +69,7 @@
 						    :structure-notify)))
 	 (width nil)
 	 (height nil))
-    (describe (xlib:gcontext-font gcontext))
+    ;(describe (xlib:gcontext-font gcontext))
     (xlib:map-window window)
     (xlib:event-case (display :force-output-p t
 			      :discard-p t)
